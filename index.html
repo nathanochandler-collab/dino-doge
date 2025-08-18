@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Meteor Dodge</title>
+  <style>
+    body { margin:0; overflow:hidden; background:white; font-family: Arial, sans-serif; }
+    canvas { display:block; background:white; }
+    #score { position:absolute; top:10px; left:10px; font-size:24px; color:black; display:none; }
+    .overlay {
+      position:absolute; top:0; left:0; width:100%; height:100%;
+      background:white; display:flex; flex-direction:column; justify-content:center; align-items:center;
+    }
+    .overlay h1 { font-size:48px; margin-bottom:20px; }
+    .overlay button { padding:15px 30px; font-size:24px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div id="startScreen" class="overlay">
+    <h1>Meteor Dodge</h1>
+    <button id="startButton">Start Game</button>
+  </div>
+  <div id="gameOverScreen" class="overlay" style="display:none;">
+    <h1>Game Over</h1>
+    <p id="finalScore" style="font-size:24px; margin-bottom:20px;"></p>
+    <button id="restartButton">Restart Game</button>
+  </div>
+  <div id="score">Score: 0</div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let player, keys, meteors, score;
+    let meteorInterval, lastMeteorTime, gameTime, gameRunning;
+
+    // Load images
+    const playerImg = new Image();
+    playerImg.src = "dino.png";  // Dino image
+
+    const meteorImg = new Image();
+    meteorImg.src = "meteor.png";  // Meteor image
+
+    function initGame() {
+      player = { x: canvas.width/2-20, y: canvas.height-60, width: 40, height: 40, speed: 7 };
+      keys = {};
+      meteors = [];
+      score = 0;
+      meteorInterval = 1000;
+      lastMeteorTime = 0;
+      gameTime = 0;
+      gameRunning = true;
+      document.getElementById('score').innerText = "Score: 0";
+      document.getElementById('score').style.display = 'block';
+    }
+
+    document.addEventListener('keydown', e => keys[e.key] = true);
+    document.addEventListener('keyup', e => keys[e.key] = false);
+
+    document.getElementById('startButton').addEventListener('click', () => {
+      document.getElementById('startScreen').style.display = 'none';
+      initGame();
+      requestAnimationFrame(gameLoop);
+    });
+
+    document.getElementById('restartButton').addEventListener('click', () => {
+      document.getElementById('gameOverScreen').style.display = 'none';
+      initGame();
+      requestAnimationFrame(gameLoop);
+    });
+
+    function createMeteor() {
+      let size = Math.random() * 30 + 20 + Math.floor(gameTime/10000);
+      meteors.push({
+        x: Math.random() * (canvas.width - size),
+        y: -size,
+        width: size,
+        height: size,
+        speed: Math.random() * 2 + 2 + gameTime/30000
+      });
+    }
+
+    function update(deltaTime) {
+      if (!gameRunning) return;
+
+      gameTime += deltaTime;
+      if (gameTime % 5000 < deltaTime) meteorInterval = Math.max(200, meteorInterval - 100);
+
+      if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+      if (keys['ArrowRight'] && player.x + player.width < canvas.width) player.x += player.speed;
+
+      lastMeteorTime += deltaTime;
+      if (lastMeteorTime > meteorInterval) { createMeteor(); lastMeteorTime=0; }
+
+      for (let i = meteors.length - 1; i >= 0; i--) {
+        meteors[i].y += meteors[i].speed;
+
+        if (player.x < meteors[i].x + meteors[i].width &&
+            player.x + player.width > meteors[i].x &&
+            player.y < meteors[i].y + meteors[i].height &&
+            player.y + player.height > meteors[i].y) {
+          gameOver();
+        }
+
+        if (meteors[i].y > canvas.height) {
+          score++;
+          meteors.splice(i, 1);
+          document.getElementById('score').innerText = "Score: " + score;
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw player image
+      ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+      // Draw meteors image
+      meteors.forEach(m => ctx.drawImage(meteorImg, m.x, m.y, m.width, m.height));
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      document.getElementById('finalScore').innerText = "Your score: " + score;
+      document.getElementById('gameOverScreen').style.display = 'flex';
+    }
+
+    let lastTime = 0;
+    function gameLoop(timestamp) {
+      if (!gameRunning) return;
+      let deltaTime = timestamp - lastTime;
+      lastTime = timestamp;
+      update(deltaTime);
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
